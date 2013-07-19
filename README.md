@@ -15,9 +15,16 @@ A simple bittorrent client extracted from the awesome [peerflix](https://github.
 
 	var client = new Torrent(torrent, downloadLocation, function(err){
 		if (!err) client.download();
+
+		// Get speed
 		setInterval(function(){
 			console.log(Math.round(client.speed()) / 1000);
 		}, 500);
+
+		// Get percentage downloaded
+		setInterval(function(){
+			console.log(Math.round(client.percentage()));
+		}, 10000);
 	});
 
 	client.on('finished', function(){

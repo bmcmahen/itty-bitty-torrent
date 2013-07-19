@@ -114,6 +114,15 @@ Storage.prototype.getPieces = function(){
   });
 };
 
+// A (loose) estimate of percentage downloaded, number of missing
+// pieces remaining. This could be more accurate.
+
+Storage.prototype.percentageDownloaded = function(){
+  var len = this.pieces.length;
+  var remaining = len - this.missing.length;
+  return (remaining / len) * 100;
+};
+
 Storage.prototype.onPartReadable = function(index){
   var i = this.missing.indexOf(index);
   this.pieces[index] = null;

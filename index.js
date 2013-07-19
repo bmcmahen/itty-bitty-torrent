@@ -205,4 +205,9 @@ Torrent.prototype.calculateOffset = function(me){
   return Math.min(Math.floor(data / this.torrent.pieceLength), max);
 };
 
+// Return percentage downloaded.
+Torrent.prototype.percentage = function(){
+  if (!this.storage) return;
+  return this.storage.percentageDownloaded();
+};
 
