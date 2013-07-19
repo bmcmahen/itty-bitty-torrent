@@ -9,7 +9,6 @@
     "part-file": "~0.1.0",
     "bitfield": "~0.1.0",
     "base32": "0.0.5",
-    "dht": "0.0.3",
     "bittorrent-dht": "git://github.com/bmcmahen/bittorrent-dht.git"
   },
   "main": "index.js"
