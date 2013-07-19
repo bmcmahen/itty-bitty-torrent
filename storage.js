@@ -119,8 +119,9 @@ Storage.prototype.onPartReadable = function(index){
 	this.pieces[index] = null;
 	if (i > -1) this.missing.splice(i, 1);
 	this.emit('readable', index);
-	if (this.pieces.every(function(piece){ return !piece }))
+	if (this.pieces.every(function(piece){ return !piece })){
 		this.emit('finished');
+	}
 };
 
 Storage.prototype.sizeof = function(index, offset){
