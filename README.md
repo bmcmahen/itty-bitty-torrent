@@ -27,7 +27,6 @@ A simple bittorrent client extracted from the awesome [peerflix](https://github.
 	// stop our torrent downloading & seeding
 	client.stop();
 
+## License
 
-## TODO
-
-Magnets!
+MIT
