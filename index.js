@@ -39,7 +39,6 @@ function Torrent(file, path, fn){
       path : path
     });
     self.storage.on('finished', function(){
-      if (self.swarm) self.swarm.destroy();
       self.emit('finished');
     });
     self.storage.on('readable', self.onStorageReadable.bind(self));

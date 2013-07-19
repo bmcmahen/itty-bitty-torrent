@@ -1,6 +1,6 @@
 {
   "name": "itty-bitty-torrent",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "dependencies": {
     "peer-wire-swarm": "~0.2.0",
     "read-torrent": "~0.1.0",
