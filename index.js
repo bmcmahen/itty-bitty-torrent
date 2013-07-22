@@ -102,11 +102,7 @@ Torrent.prototype.swarm = Torrent.prototype.download = function(){
   swarm.on('wire', function(wire, connection){
 
     var onchoketimeout = function(){
-      var l = swarm.wires.length;
-      if (l > MIN_PEERS && swarm.queued > 2 * (MAX_PEERS - l)) {
-        return connection.emit('close');
-      }
-      wire.timeout = setTimeout(onchoketimeout, 5000);
+      return connection.emit('close');
     };
 
     wire.speed = speedometer();
