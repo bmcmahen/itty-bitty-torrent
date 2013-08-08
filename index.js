@@ -131,7 +131,7 @@ Torrent.prototype.swarm = Torrent.prototype.download = function(){
 };
 
 Torrent.prototype.stop = function(){
-  if (self.swarm) self.swarm.destroy();
+  if (this.swarm) this.swarm.destroy();
   // xxx -> also delete our file?
   // have pause / destroy disambiguity?
 };
