@@ -89,8 +89,12 @@ Torrent.prototype.swarm = Torrent.prototype.download = function(){
   swarm.on('wire', function(wire, connection){
 
     var requestPiece = function(i){
-      if (wire.requests.length >= MAX_QUEUED) return true;
-      var offset = storage.select(i);
+      var len = wire.requests.length;
+      if (len >= MAX_QUEUED) return true;
+      var offset = (len === 0 && storage.missing.length < 30)
+        ? storage.select(i, true)
+        : storage.select(i);
+
       if (offset === -1) return;
       wire.request(i, offset, storage.sizeof(i, offset), function(err, buf){
         if (err) return storage.deselect(i, offset);
@@ -102,7 +106,7 @@ Torrent.prototype.swarm = Torrent.prototype.download = function(){
     var requestPieces = function(){
       wire.peerPieces.some(function(piece, i){
         if (!piece || !storage.pieces[i]) return;
-        requestPiece(i);
+        return requestPiece(i);
       });
     }
 

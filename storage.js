@@ -22,7 +22,7 @@ function File(file, torrent, path){
   this.name = file.name;
   this.length = file.length;
   this.offset = file.offset;
-  this.getPosition().tryToResume();
+  this.getPosition();
 };
 
 util.inherits(File, events.EventEmitter);
@@ -34,7 +34,7 @@ util.inherits(File, events.EventEmitter);
  */
 
 File.prototype.getPosition = function(){
-  this.start = this.offset / this.torrent.pieceLength | 0;
+  this.start = (this.offset / this.torrent.pieceLength) | 0;
   this.end = ((this.offset + this.length + 1) / this.torrent.pieceLength) | 0;
   var sliced = this.torrent.pieces.slice(this.start, this.end + 1);
   this.destination = partFile(this.path, this.torrent.pieceLength, sliced);
@@ -61,10 +61,10 @@ File.prototype.tryToResume = function(){
   var self = this;
   fs.exists(this.path, function(exists){
     if (!exists) return;
-    var i = self.start;
+    var i = 0;
     var verifyNext = function(){
-      self.destination.verify(i, function(){
-        if (++i <= self.end) verifyNext();
+      self.destination.verify(i, function(err){
+        if (++i <= (self.end - self.start)) verifyNext();
       });
     };
     verifyNext();
@@ -91,6 +91,7 @@ function Storage(torrent, options){
   this.files = this.torrent.files.map(function(file){
     var f = new File(file, torrent, options.path, self);
     f.on('partReadable', self.onPartReadable.bind(self));
+    f.tryToResume();
     return f;
   });
 
