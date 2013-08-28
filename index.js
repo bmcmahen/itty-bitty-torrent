@@ -44,10 +44,6 @@ module.exports = Torrent;
 
 Torrent.prototype.onStorageReadable = function(i){
   this.have.set(i);
-  if (!this.buffered) {
-    this.emit('buffered');
-    this.buffered = true;
-  }
   this.swarm.wires.forEach(function(wire){
     wire.have(i);
   });
