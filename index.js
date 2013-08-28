@@ -14,7 +14,6 @@ var MAX_PEERS = 30;
 var MIN_PEERS = 0;
 var MAX_QUEUED = 5;
 var MIN_SPEED = 5 * 1024;
-var CHOKE_TIMEOUT = 5000;
 var PIECE_TIMEOUT = 30000;
 
 function Torrent(file, path, fn){
