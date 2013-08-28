@@ -8,14 +8,6 @@ var Storage = require('./storage');
 var EventEmitter = require('events').EventEmitter;
 var util = require('util');
 
-var remove = function(arr, item) {
-  if (!arr) return false;
-  var i = arr.indexOf(item);
-  if (i === -1) return false;
-  arr.splice(i, 1);
-  return true;
-};
-
 // Constants
 var BLOCK_SIZE = 16*1024;
 var MAX_PEERS = 30;
