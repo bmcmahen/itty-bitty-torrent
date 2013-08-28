@@ -163,11 +163,13 @@ Storage.prototype.findDestination = function(i){
 
 Storage.prototype.write = function(index, offset, block){
   var p = this.pieces[index];
+
   if (!p) return;
   var buffer = p.write(offset, block);
   if (!buffer) return;
   var file = this.findDestination(index);
   file.destination.write(index - file.start, buffer, function(err){
+    console.log('write finished, err?', err);
     if (err) return p.reset();
   });
 };

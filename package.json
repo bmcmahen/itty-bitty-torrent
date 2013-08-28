@@ -2,14 +2,15 @@
   "name": "itty-bitty-torrent",
   "version": "0.0.5",
   "dependencies": {
-    "peer-wire-swarm": "~0.2.0",
+    "peer-wire-swarm": "0.4.1",
     "read-torrent": "~0.1.0",
     "hat": "0.0.3",
     "speedometer": "~0.1.1",
     "part-file": "~0.1.0",
     "bitfield": "~0.1.0",
     "base32": "0.0.5",
-    "bittorrent-dht": "git://github.com/bmcmahen/bittorrent-dht.git"
+    "bittorrent-dht": "git://github.com/bmcmahen/bittorrent-dht.git",
+    "random-access-file": "~0.3.1"
   },
   "main": "index.js"
 }

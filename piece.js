@@ -54,13 +54,16 @@ Piece.prototype.write = function(offset, buffer) {
   this.buffer = this.buffer || new Buffer(this.length);
   this.blocks[i] = BLOCK_WRITTEN;
   this.blocksWritten++;
+  try {
   buffer.copy(this.buffer, offset);
+} catch(err) {
+  console.log(err);
+}
 
   var firstBlank = 0;
   Array.prototype.some.call(this.blocks, function(block) { firstBlank++; return block != BLOCK_WRITTEN });
   this.progress = Math.min( this.buffer.length, firstBlank * BLOCK_SIZE);
   this.emit("progress", this.progress);
-
   return this.blocksWritten === this.blocks.length && this.buffer;
 };
 

@@ -32,12 +32,11 @@ function Torrent(file, path, fn){
   this.peerId = '-TD0005-'+hat(48);
   this.requesting = [];
   this.speed = speedometer();
+  this.buffered = false;
   var self = this;
   this.readTorrent(function(err, torrent){
     if (err && fn) return fn(err);
-    self.storage = new Storage(torrent, {
-      path : path
-    });
+    self.storage = new Storage(torrent, { path : path });
     self.storage.on('finished', function(){
       self.emit('finished');
     });
@@ -53,6 +52,10 @@ module.exports = Torrent;
 Torrent.prototype.onStorageReadable = function(i){
   delete this.requesting[i];
   this.have.set(i);
+  if (!this.buffered) {
+    this.emit('buffered');
+    this.buffered = true;
+  }
   this.swarm.wires.forEach(function(wire){
     wire.have(i);
   });
@@ -80,10 +83,12 @@ Torrent.prototype.findPeers = function(num){
   var self = this;
   var dht = new DHT(new Buffer(this.torrent.infoHash, 'hex'));
   var peers = num || 300;
-  dht.findPeers(peers);
+  console.log('find peers!');
   dht.on('peer', function(peer){
+    console.log('peer', peer);
     self.swarm.add(peer);
   });
+  dht.findPeers(peers);
   return this;
 };
 
@@ -100,27 +105,55 @@ Torrent.prototype.swarm = Torrent.prototype.download = function(){
   var self = this;
 
   swarm.on('wire', function(wire, connection){
+      var requesting = self.requesting;
+      var storage = self.storage;
 
-    var onchoketimeout = function(){
-      return connection.emit('close');
-    };
+    // note: this no longer front loads everything, making it
+    // a poor choice for streaming torrent videos. Also, our
+    // progress indicator isn't really accurate anymore either. The
+    // download progress will be slow to start, and fast to end.
+
+    var getPieces = function(){
+      wire.peerPieces.some(function(piece, i){
+
+        if (!piece || !storage.pieces[i]) return;
+        if (wire.requests.length >= MAX_QUEUED) {
+          return true;
+        }
+
+        var offset = storage.select(i);
+        if (offset === -1) return;
+
+        console.log('requesting', i);
+        wire.request(i, offset, storage.sizeof(i, offset), function(err, buf){
+          if (err) return storage.deselect(i, offset);
+          storage.write(i, offset, buf);
+          getPieces();
+        });
+      });
+    }
+
+
+    wire.on('have', function(i){
+      if (!storage.missing[i]) return;
+      if (wire.requests.length >= MAX_QUEUED) return;
+      var offset = storage.select(i);
+      if (offset === -1) return;
+      wire.request(i, offset, storage.sizeof(i, offset), function(err, buf){
+        if (err) return storage.deselect(i, offset);
+        storage.write(i, offset, buf);
+        getPieces();
+      });
+    });
+
 
     wire.speed = speedometer();
-    wire.on('unchoke', self.update.bind(self));
-    wire.on('unchoke', function(){
-      if (wire.timeout) clearTimeout(wire.timeout);
-    });
-    wire.on('choke', function(){
-      if (wire.timeout) clearTimeout(wire.timeout);
-      wire.timeout = setTimeout(onchoketimeout, 5000);
-    });
-    wire.on('have', self.update.bind(self));
+    wire.on('unchoke', getPieces);
     wire.once('interested', function(){ wire.unchoke(); });
     wire.setTimeout(PIECE_TIMEOUT, function(){ wire.destroy(); });
     wire.on('request', self.storage.read.bind(self.storage));
     wire.bitfield(self.have);
     wire.interested();
-    wire.timeout = setTimeout(onchoketimeout, 5000);
   });
 
   swarm.on('download', function(bytes){
@@ -132,73 +165,6 @@ Torrent.prototype.swarm = Torrent.prototype.download = function(){
 
 Torrent.prototype.stop = function(){
   if (this.swarm) this.swarm.destroy();
-  // xxx -> also delete our file?
-  // have pause / destroy disambiguity?
-};
-
-Torrent.prototype.update = function(){
-  var self = this;
-  // This could be much more efficient. Basically, every time
-  // we get information from a wire that it has something, or it has
-  // unchoked us, we loop through _all_ of our wires and request
-  // information for each. It would make more sense to just request
-  // for each wire when it is unchoked or 'have', and then when
-  // a piece is finished, we make another request from that peer.
-  this.swarm.wires.forEach(function(peer){
-    if (peer.peerChoking) return;
-    self.select(peer);
-    if (!peer.requests && self.storage.missing.length < 30)
-      self.select(peer, true);
-  });
-};
-
-// Request the pieces that we are missing. Missing pieces
-// are stored in Storage.
-Torrent.prototype.select = function(peer, force){
-  var storage = this.storage;
-  var requesting = this.requesting;
-  var peerOffset = this.calculateOffset(peer);
-
-  storage.missing
-    .slice(peerOffset)
-    .some(function(piece){
-
-      if (peer.requests >= MAX_QUEUED) return true;
-
-      // Make sure that our peer actually has the piece
-      // before requesting it.
-      if (!peer.peerPieces[piece]) return;
-      var offset = storage.select(piece, force);
-      if (offset === -1) return;
-
-      requesting[piece] = requesting[piece] || [];
-      requesting[piece].push(peer);
-
-      peer.request(piece, offset, storage.sizeof(piece, offset), function(err, buffer){
-        remove(requesting[piece], peer);
-        if (err) return storage.deselect(piece, offset);
-        storage.write(piece, offset, buffer);
-      });
-    });
-};
-
-Torrent.prototype.calculateOffset = function(me){
-  var speed = me.speed();
-  var time = MAX_QUEUED * BLOCK_SIZE / (speed || 1);
-  var max = this.storage.missing.length > 60
-    ? this.storage.missing.length - 30
-    : this.storage.missing.length - 1;
-  var data = 0;
-  var self = this;
-
-  this.swarm.wires.forEach(function(wire){
-    if (!wire.peerPieces[self.storage.missing[0]]) return;
-    if (wire.peerChoking) return;
-    if (me === wire || wire.speed() < speed) return;
-    data += wire.speed() * time;
-  });
-
-  return Math.min(Math.floor(data / this.torrent.pieceLength), max);
 };
 
 // Return percentage downloaded.
