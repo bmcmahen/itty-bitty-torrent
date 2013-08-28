@@ -22,17 +22,12 @@ function Torrent(file, path, fn){
   this.file = file;
   this.peerId = '-TD0005-'+hat(48);
   this.speed = speedometer();
-  this.buffered = false;
   var self = this;
   this.readTorrent(function(err, torrent){
     if (err && fn) return fn(err);
     self.storage = new Storage(torrent, { path : path });
-    self.storage.on('finished', function(){
-      self.emit('finished');
-    });
-    self.storage.on('buffered', function(){
-      self.emit('buffered');
-    });
+    self.storage.on('finished', function(){ self.emit('finished'); });
+    self.storage.on('buffered', function(){ self.emit('buffered'); });
     self.storage.on('readable', self.onStorageReadable.bind(self));
     if (fn) fn();
   });
