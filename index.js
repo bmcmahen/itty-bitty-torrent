@@ -30,7 +30,6 @@ function Torrent(file, path, fn){
   EventEmitter.call(this);
   this.file = file;
   this.peerId = '-TD0005-'+hat(48);
-  this.requesting = [];
   this.speed = speedometer();
   this.buffered = false;
   var self = this;
@@ -39,6 +38,9 @@ function Torrent(file, path, fn){
     self.storage = new Storage(torrent, { path : path });
     self.storage.on('finished', function(){
       self.emit('finished');
+    });
+    self.storage.on('buffered', function(){
+      self.emit('buffered');
     });
     self.storage.on('readable', self.onStorageReadable.bind(self));
     if (fn) fn();
@@ -50,7 +52,6 @@ util.inherits(Torrent, EventEmitter);
 module.exports = Torrent;
 
 Torrent.prototype.onStorageReadable = function(i){
-  delete this.requesting[i];
   this.have.set(i);
   if (!this.buffered) {
     this.emit('buffered');
@@ -83,9 +84,7 @@ Torrent.prototype.findPeers = function(num){
   var self = this;
   var dht = new DHT(new Buffer(this.torrent.infoHash, 'hex'));
   var peers = num || 300;
-  console.log('find peers!');
   dht.on('peer', function(peer){
-    console.log('peer', peer);
     self.swarm.add(peer);
   });
   dht.findPeers(peers);
@@ -103,52 +102,35 @@ Torrent.prototype.findPeers = function(num){
 Torrent.prototype.swarm = Torrent.prototype.download = function(){
   var swarm = this.swarm = Swarm(this.torrent.infoHash, this.peerId);
   var self = this;
+  var storage = this.storage;
 
   swarm.on('wire', function(wire, connection){
-      var requesting = self.requesting;
-      var storage = self.storage;
 
-    // note: this no longer front loads everything, making it
-    // a poor choice for streaming torrent videos. Also, our
-    // progress indicator isn't really accurate anymore either. The
-    // download progress will be slow to start, and fast to end.
-
-    var getPieces = function(){
-      wire.peerPieces.some(function(piece, i){
-
-        if (!piece || !storage.pieces[i]) return;
-        if (wire.requests.length >= MAX_QUEUED) {
-          return true;
-        }
-
-        var offset = storage.select(i);
-        if (offset === -1) return;
-
-        console.log('requesting', i);
-        wire.request(i, offset, storage.sizeof(i, offset), function(err, buf){
-          if (err) return storage.deselect(i, offset);
-          storage.write(i, offset, buf);
-          getPieces();
-        });
-      });
-    }
-
-
-    wire.on('have', function(i){
-      if (!storage.missing[i]) return;
-      if (wire.requests.length >= MAX_QUEUED) return;
+    var requestPiece = function(i){
+      if (wire.requests.length >= MAX_QUEUED) return true;
       var offset = storage.select(i);
       if (offset === -1) return;
       wire.request(i, offset, storage.sizeof(i, offset), function(err, buf){
         if (err) return storage.deselect(i, offset);
         storage.write(i, offset, buf);
-        getPieces();
+        requestPieces();
       });
+    }
+
+    var requestPieces = function(){
+      wire.peerPieces.some(function(piece, i){
+        if (!piece || !storage.pieces[i]) return;
+        requestPiece(i);
+      });
+    }
+
+    wire.on('have', function(i){
+      if (!storage.pieces[i]) return;
+      requestPiece(i);
     });
 
-
     wire.speed = speedometer();
-    wire.on('unchoke', getPieces);
+    wire.on('unchoke', requestPieces);
     wire.once('interested', function(){ wire.unchoke(); });
     wire.setTimeout(PIECE_TIMEOUT, function(){ wire.destroy(); });
     wire.on('request', self.storage.read.bind(self.storage));
@@ -156,10 +138,7 @@ Torrent.prototype.swarm = Torrent.prototype.download = function(){
     wire.interested();
   });
 
-  swarm.on('download', function(bytes){
-    self.speed(bytes);
-  });
-
+  swarm.on('download', self.speed.bind(self));
   this.findPeers();
 };
 

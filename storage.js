@@ -128,6 +128,7 @@ Storage.prototype.onPartReadable = function(index){
   this.pieces[index] = null;
   if (i > -1) this.missing.splice(i, 1);
   this.emit('readable', index);
+  if (index === 0) this.emit('buffered');
   if (this.pieces.every(function(piece){ return !piece })){
     this.emit('finished');
   }
@@ -169,7 +170,6 @@ Storage.prototype.write = function(index, offset, block){
   if (!buffer) return;
   var file = this.findDestination(index);
   file.destination.write(index - file.start, buffer, function(err){
-    console.log('write finished, err?', err);
     if (err) return p.reset();
   });
 };
